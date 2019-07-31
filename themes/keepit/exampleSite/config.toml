@@ -1,4 +1,4 @@
-baseURL = "https://wengxk.netlify.com"
+baseURL = "https://example.com"
 languageCode = "en"
 defaultContentLanguage = "en"
 title = "KeepIt"
@@ -41,8 +41,8 @@ disqusShortname = "yourdiscussshortname"
 
 [params]
     since = 2012
-    author = "wengxk"               # Author's name
-    subtitle = "Blog based on Hugo theme"       # Subtitle
+    author = "Fastbyte01"               # Author's name
+    subtitle = "A Hugo theme"       # Subtitle
     cdn_url = ""           # Base CDN URL
     home_mode = "" # post or other
 
@@ -58,7 +58,7 @@ disqusShortname = "yourdiscussshortname"
     description = "" # site description
     keywords = "" # site keywords
 
-    # license= 'Released under <a rel="license external nofollow noopener noreffer" href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank">CC BY-NC 4.0</a>'
+    license= 'Released under <a rel="license external nofollow noopener noreffer" href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank">CC BY-NC 4.0</a>'
 
 [params.gravatar]
     #email = "example@gmail.com"   #uncomment and insert your email address to use gravatar
@@ -85,7 +85,7 @@ disqusShortname = "yourdiscussshortname"
     #Codepen = "xxxx"
     #Bitbucket = "xxxx"
     #Stackoverflow = "xxxxx"
-    Weibo = "xxxx"
+    #Weibo = "xxxx"
     #Odnoklassniki = "xxxx"
     #VKontakte = "xxxx"
     #Flickr = "xxxx"
@@ -134,7 +134,7 @@ Linkedin = true
 #Tumblr = true
 #VKontakte = true
 #Douban = true
-Weibo = true
+#Weibo = true
 
 # Used only for Seo schema 
 copyright = "This work is licensed under a Creative Commons Attribution-NonCommercial 4.0 International License."
