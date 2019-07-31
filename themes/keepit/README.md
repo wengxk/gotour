@@ -130,6 +130,7 @@ The following resources are included in the theme:
 * code-prettify - https://github.com/google/code-prettify
 
 # Author
+
 [Fastbyte01](https://github.com/Fastbyte01)
 
 # See Also
