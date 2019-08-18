@@ -6,7 +6,6 @@ type:
 - posts
 categories:
 - sample
-weight: 100
 ---
 
 # sample post
