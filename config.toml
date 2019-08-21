@@ -41,8 +41,8 @@ disqusShortname = "yourdiscussshortname"
 
 [params]
     since = 2012
-    author = "wengxk"               # Author's name
-    subtitle = "Blog based on Hugo theme"       # Subtitle
+    author = "XK WENG"               # Author's name
+    subtitle = ""       # Subtitle
     cdn_url = ""           # Base CDN URL
     home_mode = "" # post or other
 
@@ -65,12 +65,12 @@ disqusShortname = "yourdiscussshortname"
 
 
 [params.social]
-    GitHub = "xxxx"
-    Linkedin = "xxxx"
-    Twitter = "xxxx"
+    GitHub = "wengxk"
+    # Linkedin = "xxxx"
+    # Twitter = "xxxx"
     #Instagram = "xxxx"
-    #Email   = "xxxx"
-    Facebook = "xxxx"
+    Email   = "wengxiaokang@outlook.com"
+    # Facebook = "xxxx"
     #Telegram = "xxxx"
     #Medium = "xxxx"
     #Gitlab = "xxxx"
@@ -85,7 +85,7 @@ disqusShortname = "yourdiscussshortname"
     #Codepen = "xxxx"
     #Bitbucket = "xxxx"
     #Stackoverflow = "xxxxx"
-    Weibo = "xxxx"
+    Weibo = "3604687692"
     #Odnoklassniki = "xxxx"
     #VKontakte = "xxxx"
     #Flickr = "xxxx"
