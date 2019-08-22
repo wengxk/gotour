@@ -26,11 +26,11 @@ categories:
 
 对于连续相邻的字符串，MySQL会自动组合为单个字符串。
 
-`mysql>SELECT 'strings' 'placed' 'nearly' a  WHERE '1' '1' = '11';`
+`mysql> SELECT 'strings' 'placed' 'adjacently' a  WHERE '1' '1' = '11';`
 
 |a|
 |:---|
-|stringsplacednearly|
+|stringsplacedadjacently|
 
 #### CHAR & VARCHAR
 
@@ -71,11 +71,16 @@ CHAR 和 VARCHAR 相似，区别在于存储与检索。
 
 示例:
 
-`mysql>CREATE TABLE t(a BINARY(10),b VARBINARY(10));`
+```SQL
+CREATE TABLE t(a BINARY(10),b VARBINARY(10));
+INSERT INTO t(a,b) VALUES('a','a'),('你','你');
+```
 
-`mysql>INSERT INTO t(a,b) VALUES('a','a'),('你','你');`
+<!-- `mysql> CREATE TABLE t(a BINARY(10),b VARBINARY(10));`
 
-`mysql>SELECT HEX(a),HEX(b),CAST(a AS CHAR),CAST(b AS CHAR) FROM t;`
+`mysql> INSERT INTO t(a,b) VALUES('a','a'),('你','你');` -->
+
+`mysql> SELECT HEX(a),HEX(b),CAST(a AS CHAR),CAST(b AS CHAR) FROM t;`
 
 | HEX(a) | HEX(b) | CAST(a AS CHAR) | CAST(b AS CHAR)|
 |:---|:---|:---|:---|
@@ -95,12 +100,57 @@ CHAR 和 VARCHAR 相似，区别在于存储与检索。
 |MEDIUMBLOB,  MEDIUMTEXT|L+3 bytes, L< 2^24|
 |LONGBLOB, LONGTEXT|L+4 bytes, L< 2^32|
 
-#### ENUM
+#### ENUM & SET
 
-#### SET
+MySQL不支持传统数据库的CHECK约束，但是可以通过使用`ENUM`和`SET`数据类型及启用严格模式的sql_mode来实现（另一种实现方式是使用触发器）。
+
+`ENUM`代表了单选型的字符串类型，`ENUM('options1','options2','options3'...,'optionsN')`;   
+`SET`代表了多选型的字符串类型，`SET('options1','options2','options3'...,'optionsN')`。
+
+`ENUM`和`SET`中的每个选项都有选项索引的概念。
+
+`ENUM('options1','options2','options3'...,'optionsN')`
+
+| 选项 | 索引值 | 备注 |
+|:---|:---|:---|
+|NULL,|NULL|如果列可为NULL|
+|''|0|如果没有启用严格模式，且数据不符合选项的任何一个|
+|options1|1|
+|options2|2|
+|options3|3|
+|optionsN|N|
+
+`SET('options1','options2','options3'...,'optionsN')`
+
+| 选项 | 索引值 | 备注 |
+|:---|:---|:---|
+|NULL,|NULL|如果列可为NULL|
+|options1|1|
+|options2|2|
+|options3|4|
+|optionsN|2^(N-1)|
+
+示例：
+
+```SQL
+CREATE TABLE t
+ (
+	 a ENUM('Sun.','Mon.','Tues.','Wed.','Thur.','Fri.','Sat.') NOT NULL,
+	 b SET('Sun.','Mon.','Tues.','Wed.','Thur.','Fri.','Sat.') NOT NULL
+ );
+ INSERT INTO t(a,b) VALUES('Sun.','Sun.,Mon.'),(6,7);
+```
+
+`mysql> SELECT * FROM t;`
+
+| a | b |
+|:---|:---|
+|Sun.|Sun.,Mon.|
+|Fri.|Sun.,Mon.,Tues.|
+
+> 因为`ENUM`和`SET`数据类型都有选项索引的概念，所以要避免以1，2，3或'1'，'2'，'3'这种数字作为选项值
 
 ## 数值
-
 
 
 ## 日期和时间
