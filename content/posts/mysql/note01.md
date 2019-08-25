@@ -156,7 +156,7 @@ MySQL支持所有标准SQL数值类型，包括定点型和浮点型数值。
 
 二进制类型的字面量表示：
 
-| 字面量 | 值 |
+| 字面量 | 十进值 |
 |:---|:---|
 |b'101'|5|
 |B'101'|5|
@@ -164,6 +164,17 @@ MySQL支持所有标准SQL数值类型，包括定点型和浮点型数值。
 |0B101|非法|
 |b101|非法|
 |B101|非法|
+
+十六进制的字面量表示：
+
+| 字面量 | 十进值 |
+|:---|:---|
+|X'10aF'|4271|
+|x'10AF'|4271|
+|0x10AF|4271|
+|0X10AF|非法|
+|x10AF|非法|
+|X10AF|非法|
 
 #### INTEGER
 
@@ -217,15 +228,111 @@ MySQL将 `DECIMAL` 的整数和小数部分分开存储，对于每部分，每9
 
 #### NUMERIC TYPE ATTRIBUTES
 
-NUMERIC TYPE ATTRIBUTES 指的是可以在定义整型时限定显示宽度。
+NUMERIC TYPE ATTRIBUTES 指的是可以在定义整型时限定显示宽度即长度。
 
 ```SQL
 CREATE TABLE t(a INT(10), b SMALLINT(10));
-INSERT INTO t(a,b)VALUES(999999999,32767); -- successs
+INSERT INTO t(a,b) VALUES(999999999,32767); -- successs
 INSERT INTO t(a) VALUES(11111111111); -- error, out of range value
 INSERT INTO t(b) VALUES(32768); -- error, out of range value
 ```
 
 ### 日期和时间
+
+#### MySQL中的时区
+
+在说明MySQL日期和时间前，需要先了解下世界时间和时区的基本知识，见 [GMT: Greenwich Mean Time 格林尼治标准时间](https://time.artjoey.com/cn/)
+
+摘抄一段原文：
+
+1. 是指位于英国伦敦郊区的皇家格林尼治天文台的标准时间，因为本初子午线被定义在通过那裡的经线。
+2. 理论上来说，格林尼治标准时间的正午是指当太阳横穿格林尼治子午线时（也就是在格林尼治上空最高点时）的时间。
+3. 由于地球在它的椭圆轨道里的运动速度不均匀，这个时刻可能和实际的太阳时相差16分钟。
+地球每天的自转是有些不规则的，而且正在缓慢减速。所以，格林尼治时间已经不再被作为标准时间使用。
+4. 自1924年2月5日开始，格林尼治天文台每隔一小时会向全世界发放调时信息。
+5. 现在的标准时间 - 协调世界时（UTC: Coordinated Universal Time）- 由原子钟提供。
+
+即北京时间 = GMT+8 = UTC+8。
+
+**MySQL会将 `TIMESTAMP` 类型的数据转换成UTC时间进行存储，在查询时会根据当前会话的时区返回对应的时间结果。**
+
+查询当前MySQL服务器的时区设置：
+
+`mysql> SELECT @@GLOBAL.time_zone,@@SESSION.time_zone;`
+
+|@@GLOBAL.time_zone|@@SESSION.time_zone|
+|:---|:---|
+|SYSTEM|SYSTEM|
+
+查询当前时间：
+
+`mysql> SELECT NOW();`
+
+|NOW()|
+|:---|
+|2019-08-25 16:56:34|
+
+然后我们再设置下当前会话的时区为东九区：
+
+`mysql> SET SESSION time_zone = '+9:00';`
+
+再次查询服务器的时区设置：
+
+`mysql> SELECT @@GLOBAL.time_zone,@@SESSION.time_zone;`
+
+|@@GLOBAL.time_zone|@@SESSION.time_zone|
+|:---|:---|
+|SYSTEM|+09:00|
+
+查询当前时间：
+
+`mysql> SELECT NOW();`
+
+|NOW()|
+|:---|
+|2019-08-25 17:59:23|
+
+#### 日期和时间类型
+
+MySQL支持五种和日期时间有关的类型。
+
+|类型|格式|存储要求|最小值|最大值|零值|
+|:---|:---|:---|:---|:---|:---|
+|DATE|YYYY-MM-DD|3 bytes|1000-01-01|9999-12-31|0000-00-00|
+|TIME|hh:mm:ss (or hhh:mm:ss for large value)|3 bytes|-838:59:59|838:59:59|00:00:00|
+|DATETIME|YYYY-MM-DD hh:mm:ss|8 bytes|1000-01-0100:00:00|9999-12-31 23:59:59|0000-00-00 00:00:00|
+|TIMESTAMP|YYYY-MM-DD hh:mm:ss|4 bytes|1970-01-01 00:00:01|2038-01-19 03:14:07|0000-00-00 00:00:00|
+|YEAR|YYYY|1 bytes|1901|2155|0000|
+
+> mysql日期和时间类型的零值和非法值受sql_mode中的 `NO_ZERO_DATE` 和  `ALLOW_INVALID_DATES` 控制。
+
+另外，在MySQL5.6.4及以后版本中， `TIME`， `DATETIME`， `TIMESTAMP` 存储要求有变化。
+
+|类型|存储要求|
+|:---|:---|
+|TIME|3 bytes + fractional seconds storage|
+|DATETIME|4 bytes + fractional seconds storage|
+|TIMESTAMP|5 bytes + fractional seconds storage|
+
+|Fractional Seconds Precision|Storage Required|
+|:---|:---|
+|0|0 bytes|
+|1-2|1 bytes|
+|3-4|2 bytes|
+|5-6|3 bytes|
+
+例如： `TIME(0)`， `TIME(2)`， `TIME(4)`， `TIME(6)` 分别占用 3，4，5，6字节。
+
+#### 日期和时间的格式化
+
+见 [DATE_FORMAT](https://dev.mysql.com/doc/refman/8.0/en/date-and-time-functions.html#function_date-format)
+
+记一组常用格式：
+
+`mysql> SELECT DATE_FORMAT(NOW(),'%Y-%m-%d %H:%i:%s.%f') cur;`
+
+|cur|
+|:---|
+|2019-08-25 18:14:20.000000|
 
 ### 其他数据类型
