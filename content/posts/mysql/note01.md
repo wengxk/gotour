@@ -1,5 +1,5 @@
 ---
-title: "Language Structure Basis"
+title: "MySQL Language Structure Basis"
 date: 2019-08-20
 type:
 - post
@@ -335,4 +335,27 @@ MySQL支持五种和日期时间有关的类型。
 |:---|
 |2019-08-25 18:14:20.000000|
 
-### 其他数据类型
+## 字符集和校对规则
+
+### 相关概念
+
+我们需要了解基本的相关性概念。
+
+目前的计算机系统是基于二进制系统运行的，所有数据以二进制的补码形式存储。在计算机早期时，一套 `ASCII` 码足够西方国家使用了，
+但是随着计算机技术和社会水平的发展，越来越多的人及机构开始接入和使用计算机，
+这套基于拉丁字母的 `ASCII` 码就无法满足世界各种语言或字符的表示，于是出现了 `Unicode`。
+
+[`Unicode`](http://www.unicode.org) 的出现解决了世界上各种符号的无法统一问题，
+Unicode为世界上的任一字符都定义了一个唯一的编号，即 `Unicode` 码，并且兼容之前的 `ASCII` 码。
+
+单个 `Unicode` 码很容易识别和读取，但是多个呢？以什么做限定，是特殊字符做分隔符还是定长表示？
+在此期间有过各种编码格式，但是随着互联网的普及，`UTF-8` 编码已经成为事实标准。
+`UTF-8` 最大的特点就是它是一种变长的编码格式，可以根据字符的实际长度选择使用1-4个字节来表示。
+那 `UTF-8` 到底具有怎样的编码规则呢？
+
+See
+
+- [http://www.ruanyifeng.com/blog/2007/10/ascii_unicode_and_utf-8.html](http://www.ruanyifeng.com/blog/2007/10/ascii_unicode_and_utf-8.html)
+- [https://www.fileformat.info/info/unicode/utf8.htm](https://www.fileformat.info/info/unicode/utf8.htm)
+
+### MySQL中的字符集编码和校对规则
