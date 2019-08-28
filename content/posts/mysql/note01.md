@@ -1,5 +1,5 @@
 ---
-title: "Language Structure Basis"
+title: "MySQL Language Structure Basis"
 date: 2019-08-20
 type:
 - post
@@ -40,7 +40,8 @@ CHAR 和 VARCHAR 相似，区别在于存储与检索。
 
 不同点：
 
-`CHAR(n)` 表示固定长度n，且要求n为0-255。在存储时，如果用户实际赋值的长度没有达到n，MySQL会在字符后填补空格(0x20)，在查询时，MySQL引擎会清除掉末尾空格后返回给用户。
+`CHAR(n)` 表示固定长度n，且要求n为0-255。在存储时，如果用户实际赋值的长度没有达到n，MySQL会在字符后填补空格(0x20)，
+在查询时，MySQL引擎会清除掉末尾空格后返回给用户。
 
 > 在进行字符串比较时，末尾空格的处理情况与Collation设置有关
 
@@ -63,7 +64,8 @@ CHAR 和 VARCHAR 相似，区别在于存储与检索。
 
 #### BINARY & VARBINARY
 
-`BINARY` 和 `VARBINARY` 相似于 `CHAR` 和 `VARCHAR` ，不同之处在于前者表示字节型字符串，而后者表示字符型字符串，所以对于 `BINARY` 和 `VARBINARY`，它们的Charset和Collation都是binary，即二进制数值。
+`BINARY` 和 `VARBINARY` 相似于 `CHAR` 和 `VARCHAR` ，不同之处在于前者表示字节型字符串，
+而后者表示字符型字符串，所以对于 `BINARY` 和 `VARBINARY`，它们的Charset和Collation都是binary，即二进制数值。
 
 `BINARY(n)` 和 `VARBINARY(n)` 中的n表示存储的字节长度，而非 `CHAR(n)` 和 `VARCHAR(n)` 的字符长度。
 
@@ -83,7 +85,8 @@ INSERT INTO t(a,b) VALUES('a','a'),('你','你');
 |61000000000000000000|61|a|a|
 |E4BDA000000000000000|E4BDA0|你|你|
 
-可以验证a的ASCII码十六进制为61，在[https://unicode-table.com/en/4F60/](https://unicode-table.com/en/4F60/)可以查询到汉字“你”的utf8编码十六进制值为E4 BD A0。
+可以验证a的ASCII码十六进制为61，在[https://unicode-table.com/en/4F60/](https://unicode-table.com/en/4F60/)
+可以查询到汉字“你”的utf8编码十六进制值为E4 BD A0。
 
 #### BLOB & TEXT
 
@@ -335,4 +338,66 @@ MySQL支持五种和日期时间有关的类型。
 |:---|
 |2019-08-25 18:14:20.000000|
 
-### 其他数据类型
+## 字符集和校对规则
+
+### 相关概念
+
+我们需要了解基本的相关性概念。
+
+目前的计算机系统是基于二进制系统运行的，所有数据以二进制的补码形式存储。在计算机早期时，一套 `ASCII` 码足够满足使用需求，
+但是随着计算机技术和社会水平的发展，越来越多的人及机构开始接入和使用计算机，
+这套基于拉丁字母的 `ASCII` 码就无法满足世界各种语言或字符的表示，于是出现了 [`Unicode`](http://www.unicode.org)。
+
+`Unicode` 的出现解决了世界上各种符号的无法统一问题，
+Unicode为世界上的任一字符都定义了一个唯一的编号，即 `Unicode` 码，并且兼容之前的 `ASCII` 码。
+
+单个 `Unicode` 码很容易识别和读取，但是多个呢？以什么做限定，是特殊字符做分隔符还是定长表示？
+在此期间有过各种编码格式，但是随着互联网的普及，`UTF-8` 编码已经成为事实标准。
+`UTF-8` 最大的特点就是它是一种变长的编码格式，可以根据字符的实际长度选择使用1-4个字节来表示。
+那 `UTF-8` 到底具有怎样的编码规则呢？
+
+See
+
+- [http://www.ruanyifeng.com/blog/2007/10/ascii_unicode_and_utf-8.html](http://www.ruanyifeng.com/blog/2007/10/ascii_unicode_and_utf-8.html)
+- [https://www.fileformat.info/info/unicode/utf8.htm](https://www.fileformat.info/info/unicode/utf8.htm)
+
+### MySQL中的字符集编码和校对规则
+
+简单的说，字符集指的就是各种符号及其唯一对应的数字编号，校对规则指的是两个符号的排序规则。
+MySQL支持多种字符集和校对规则，支持在启动服务器、创建数据库、创建表、创建列及字符串字面量时指定字符集和校对规则。
+
+查看字符集
+
+`mysql> SHOW CHARSET;`
+
+查看uft8字符集有哪些校对规则
+
+`mysql> SHOW COLLATION WHERE CHARSET LIKE 'utf8%';`
+
+如何指定字符集和校对规则的语法可以自己查阅相关资料，这里主要说明 `COLLATION` 的 `pad_attribute` 属性。
+`pad_attribute` 指的是否过滤字符串末尾空格，`NO PAD` 不过滤，`PAD SPACE` 过滤。
+
+查看当前会话的校对规则
+
+`mysql> SHOW  VARIABLES LIKE '%collation%';`
+
+|Variable_name|Value|
+|:---|:---|
+|collation_connection|utf8mb4_0900_ai_ci|
+|collation_database|utf8mb4_general_ci|
+|collation_server|utf8mb4_0900_ai_ci|
+|default_collation_for_utf8mb4|utf8mb4_0900_ai_ci|
+
+上述 `utf8mb4_0900_ai_ci` 是因为在创建数据库时指定了该校对规则，其 `pad_attribute` 为 `PAD SPACE`，
+其他的皆为默认校对规则，且 `pad_attribute` 为 `NO PAD`。
+
+如下语句查询返回empty set
+
+`mysql> SELECT 1 WHERE  'a'   = 'a ';`
+
+修改后，返回1
+
+`mysql> SELECT 1 WHERE  'a'   = 'a '  COLLATE utf8mb4_general_ci;`
+
+> **总结**：`CHARSET` 和 `COLLATION` 这两个设置很重要，但是我们并不需要花太多时间在上面，
+> 一般情况下只需要使用默认的uft8（如果有utf8mb4那就用utf8mb4）即可。
