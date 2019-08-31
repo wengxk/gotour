@@ -10,13 +10,13 @@ categories:
 
 # 语言结构基础
 
-## 基本数据类型
+## 1. 基本数据类型
 
-### 字符串
+### 1.1 字符串
 
 在MySQL中，字符串类型主要包括 `CHAR`, `VARCHAR`, `BINARY`, `VARBINARY`, `BLOB`, `TEXT`, `ENUM`, 和 `SET`。
 
-#### 字符串字面量
+#### 1.1.1 字符串字面量
 
 字符串是指一个被单引号(')或双引号(")包裹的字节或字符序列。在MySQL中，如果启用了 `ANSI_QUOTES` SQL MODE，那么字符串就仅能使用单引号包裹。
 
@@ -32,7 +32,7 @@ categories:
 |:---|
 |stringsplacedadjacently|
 
-#### CHAR & VARCHAR
+#### 1.1.2 CHAR & VARCHAR
 
 CHAR 和 VARCHAR 相似，区别在于存储与检索。
 
@@ -62,7 +62,7 @@ CHAR 和 VARCHAR 相似，区别在于存储与检索。
 |'ab'|'ab&nbsp;&nbsp;'|4 bytes|'ab'|3 bytes|
 |'abcd'|'abcd'|4 bytes|'abcd'|5 bytes|
 
-#### BINARY & VARBINARY
+#### 1.1.3 BINARY & VARBINARY
 
 `BINARY` 和 `VARBINARY` 相似于 `CHAR` 和 `VARCHAR` ，不同之处在于前者表示字节型字符串，
 而后者表示字符型字符串，所以对于 `BINARY` 和 `VARBINARY`，它们的Charset和Collation都是binary，即二进制数值。
@@ -88,7 +88,7 @@ INSERT INTO t(a,b) VALUES('a','a'),('你','你');
 可以验证a的ASCII码十六进制为61，在[https://unicode-table.com/en/4F60/](https://unicode-table.com/en/4F60/)
 可以查询到汉字“你”的utf8编码十六进制值为E4 BD A0。
 
-#### BLOB & TEXT
+#### 1.1.4 BLOB & TEXT
 
 `BLOB` 为二进制大文件对象，`TEXT` 为字符大文件对象。每个都细分为四个类型。
 
@@ -99,7 +99,7 @@ INSERT INTO t(a,b) VALUES('a','a'),('你','你');
 |MEDIUMBLOB,  MEDIUMTEXT|L+3 bytes, L< 2^24|
 |LONGBLOB, LONGTEXT|L+4 bytes, L< 2^32|
 
-#### ENUM & SET
+#### 1.1.5 ENUM & SET
 
 MySQL不支持传统数据库的CHECK约束，但是可以通过使用 `ENUM` 和 `SET` 数据类型及启用严格模式的sql_mode来实现（另一种实现方式是使用触发器）。
 
@@ -149,11 +149,11 @@ CREATE TABLE t
 
 > 因为 `ENUM` 和 `SET` 数据类型都有选项索引的概念，所以要避免以1，2，3或'1'，'2'，'3'这种数字作为选项值
 
-### 数值
+### 1.2 数值
 
 MySQL支持所有标准SQL数值类型，包括定点型和浮点型数值。
 
-#### BIT
+#### 1.2.1 BIT
 
 `BIT` 类型存储的是二进制数据类型， `BIT(M)` 存储长度为M的二进制数据，1 <= M <= 64。
 
@@ -179,7 +179,7 @@ MySQL支持所有标准SQL数值类型，包括定点型和浮点型数值。
 |x10AF|非法|
 |X10AF|非法|
 
-#### INTEGER
+#### 1.2.2 INTEGER
 
 整型具体分为以下几种数据类型。
 
@@ -191,7 +191,7 @@ MySQL支持所有标准SQL数值类型，包括定点型和浮点型数值。
 |INT|4|-2,147,483,648|0|2,147,483,647|4,294,967,295|
 |BIGINT|8|-2^63|0|2^63 - 1 |2^64 - 1|
 
-#### FIXED-POINT
+#### 1.2.3 FIXED-POINT
 
 定点型包括 `DECIMAL` 和 `NUMERIC`，对 `DECIMAL` 的规则适用于 `NUMERIC`。
 
@@ -218,7 +218,7 @@ MySQL将 `DECIMAL` 的整数和小数部分分开存储，对于每部分，每9
 
 例如，DECIMAL(16,6)，整数部分10位，小数部分6位，则共占用 4 + 1 + 3 共8字节。
 
-#### FLOATING-POINT
+#### 1.2.4 FLOATING-POINT
 
 浮点数保存的是近似值。
 
@@ -229,7 +229,7 @@ MySQL将 `DECIMAL` 的整数和小数部分分开存储，对于每部分，每9
 
 形如 `FLOAT(M,D)` 和 `DOUBLE(M,D)` 的类型，尽量少用，在后期的MySQL中可能会逐渐废弃和移除。
 
-#### NUMERIC TYPE ATTRIBUTES
+#### 1.2.5 NUMERIC TYPE ATTRIBUTES
 
 NUMERIC TYPE ATTRIBUTES 指的是可以在定义整型时限定显示宽度即长度。
 
@@ -240,9 +240,9 @@ INSERT INTO t(a) VALUES(11111111111); -- error, out of range value
 INSERT INTO t(b) VALUES(32768); -- error, out of range value
 ```
 
-### 日期和时间
+### 1.3 日期和时间
 
-#### MySQL中的时区
+#### 1.3.1 MySQL中的时区
 
 在说明MySQL日期和时间前，需要先了解下世界时间和时区的基本知识，见 [GMT: Greenwich Mean Time 格林尼治标准时间](https://time.artjoey.com/cn/)
 
@@ -295,7 +295,7 @@ INSERT INTO t(b) VALUES(32768); -- error, out of range value
 |:---|
 |2019-08-25 17:59:23|
 
-#### 日期和时间类型
+#### 1.3.2 日期和时间类型
 
 MySQL支持五种和日期时间有关的类型。
 
@@ -326,7 +326,7 @@ MySQL支持五种和日期时间有关的类型。
 
 例如： `TIME(0)`， `TIME(2)`， `TIME(4)`， `TIME(6)` 分别占用 3，4，5，6字节。
 
-#### 日期和时间的格式化
+#### 1.3.3 日期和时间的格式化
 
 见 [DATE_FORMAT](https://dev.mysql.com/doc/refman/8.0/en/date-and-time-functions.html#function_date-format)
 
@@ -338,9 +338,9 @@ MySQL支持五种和日期时间有关的类型。
 |:---|
 |2019-08-25 18:14:20.000000|
 
-## 字符集和校对规则
+## 2. 字符集和校对规则
 
-### 相关概念
+### 2.1 相关概念
 
 我们需要了解基本的相关性概念。
 
@@ -361,7 +361,7 @@ See
 - [http://www.ruanyifeng.com/blog/2007/10/ascii_unicode_and_utf-8.html](http://www.ruanyifeng.com/blog/2007/10/ascii_unicode_and_utf-8.html)
 - [https://www.fileformat.info/info/unicode/utf8.htm](https://www.fileformat.info/info/unicode/utf8.htm)
 
-### MySQL中的字符集编码和校对规则
+### 2.2 MySQL中的字符集编码和校对规则
 
 简单的说，字符集指的就是各种符号及其唯一对应的数字编号，校对规则指的是两个符号的排序规则。
 MySQL支持多种字符集和校对规则，支持在启动服务器、创建数据库、创建表、创建列及字符串字面量时指定字符集和校对规则。
