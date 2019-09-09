@@ -1,6 +1,6 @@
 ---
 date: 2019-08-01
-title: Communication between Gorutines
+title: Communication between Goroutines
 type:
 - post 
 - posts
