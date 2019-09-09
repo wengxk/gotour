@@ -64,14 +64,14 @@ Change Buffer是专门用来缓存DML操作对非唯一二级索引的修改的�
 
 参数 `innodb_change_buffering` 可设置具体的缓冲操作类型
 
-|Value|Numeric Value|Desc|
+|值|数值|说明|
 |:---|:---|:---|
-|none|0|Do not buffer any operations.|
-|inserts|1|Buffer insert operations.|
-|deletes|2|Buffer delete marking operations; strictly speaking, the writes that mark index records for later deletion during a purge operation.|
-|changes|3|Buffer inserts and delete-marking operations.|
-|purges|4|Buffer the physical deletion operations that happen in the background.|
-|all|5|The default. Buffer inserts, delete-marking operations, and purges.|
+|none|0|不缓冲任何操作|
+|inserts|1|缓冲insert操作|
+|deletes|2|缓冲delete-marking操作|
+|changes|3|缓冲insert和delete-marking操作|
+|purges|4|缓冲真实的物理删除操作|
+|all|5|默认，缓冲上述所有操作|
 
 参数 `innodb_change_buffer_max_size` 可配置Change Buffer占Buffer Pool的比例大小，默认是25，最大值50。
 

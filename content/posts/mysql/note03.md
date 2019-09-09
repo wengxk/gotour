@@ -43,6 +43,110 @@ InnoDB磁盘结构和Oracle数据库的磁盘结构具有一定相似性，比�
 
 ## 表
 
+### Index-Organized Tables
 
+InnoDB存储引擎中的表相当于是Oracle数据库中的索引组织表（index-organized table），表中的数据按照主键顺序存储，索引就是表，表就是索引。
+细微不同的是Oracle中的索引组织表在创建时必须同时声明主键，而InnoDB存储引擎创建表时不强制必须存在主键，存在非空唯一索引即可。
+如果主键和非空唯一索引都不存在，InnoDB存储引擎自动创建一个6字节大小rowid列作为隐藏主键。
+如果存在多个非空唯一索引，则以第一个定义的非空唯一索引为准。
+
+> 虽然InnoDB允许表没有主键，但是强烈建议建表的同时主动声明主键
+
+### AUTO_INCREMENT
+
+#### 使用
+
+当前在应用开发时一般都会对主键选择自增类型，Oracle提供了sequence，InnoDB则提供了AUTO_INCREMENT特性。
+
+```SQL
+CREATE TABLE students
+(
+id MEDIUMINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+name CHAR(30)
+);
+
+INSERT INTO students(name)VALUES('Tom');
+INSERT INTO students(id,name)(NULL,'Hank');
+INSERT INTO students(id,name)(0,'Jack'); -- error if NO_AUTO_VALUE_ON_ZERO sql_mode is enabled
+
+SELECT * FROM students;
+```
+
+|id|name|
+|:---|:---|
+|1|Tom|
+|2|Hank|
+|3|Jack|
+
+如果不小心为主键制定了合法的数值，那么以后还能不能安全的使用自增的值？答案是肯定的。
+
+```SQL
+INSERT INTO students(id,NAME) VALUES (100,'Nancy');
+INSERT INTO students(NAME) VALUES ('Lucy');
+SELECT * FROM students;
+```
+
+|id|name|
+|:---|:---|
+|1|Tom|
+|2|Hank|
+|3|Jack|
+|100|Nancy|
+|101|Lucy|
+
+使用 `LAST_INSERT_ID()` 可以获得当前会话中最近的自增值。
+
+```SQL
+INSERT INTO students(name)VALUES('Mike');
+SELECT LAST_INSERT_ID();
+```
+
+|LAST_INSERT_ID()|
+|:---|
+|102|
+
+InnoDB存储引擎还提供了一个方便的自增类型 `SERIAL` ，它是 `BIGINT UNSIGNED NOT NULL AUTO_INCREMENT UNIQUE` 的同义词。
+
+#### 自增模式
+
+TODO
+
+### Constraints
+
+InnoDB存储引擎虽未像Oracle那样提供了强大的约束，但一些主要的约束都有提供，共有以下五种：
+
+- Primary Key
+- Unique Key
+- Foreign Key
+- Default
+- Not Null
+
+对于外键，InnoDB存储引擎会自动为其创建索引，而Oracle数据库不会，所以在Oracle数据库中建外键时一定要记得加索引。
+
+在Oracle数据库中check约束可以进行数据插入前的检验操作，InnoDB存储引擎则没有提供，
+但是可以通过 `ENUM` 和 `SET` 数据类型及触发器实现类似的效果。
+
+### Views
+
+视图在数据库中使用广泛，但是视图本身很简单，相当于一张虚拟的表，核心是查询语句。
+使用视图主要是有以下两个好处：
+
+1. 方便。视图将常用的查询逻辑封装起来，有利于开发和代码维护。
+2. 易于对外权限与安全的管理。当外围应用需要聚合查询各种数据时，我们可以为其创建特定的视图，并将视图的查询权限授权给它，
+避免暴露数据库的基表，简化了授权的同时也提高了安全性。另外，视图不仅可以查询，还可以被更新，这特别适合于一些场景的
+使用，比如我们只允许某外部应用更新本系统某张表的特定字段，而不想暴露其他字段，更不希望其更新其他字段，这时，
+我们就可以为这张表创建特定字段的视图提供给外部应用。
+
+### Partitions
+
+InnoDB存储引擎和Oracle数据库都支持表分区，但是InnoDB存储引擎暂时不支持全局索引，Oracle数据库则可以。
+
+表分区最大的一个特征就是在进行数据插入时会根据一定的条件，可以是列的散列值，区间值，函数，将数据进行分区存储与维护。
+表分区适合于OLAP应用，特别是那些跟年份聚合数据有关的业务。表分区用的合适，的确可以提高一定的查询性能和降低维护成本，但是，
+用的不好，副作用则远大于不分区。
+
+目前，本人没有使用过表分区，且接触的几个系统也都没有使用分区，这主要是由这些业务决定，没有特别的需要要去使用分区。
+
+工作中有接触和使用过一张Oracle数据表，有20多亿条数据，单表600G，这样一张大表，它都没有使用分区，查询性能也不差，查询一条数据最多1.3秒。
 
 ## 索引
