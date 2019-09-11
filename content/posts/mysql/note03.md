@@ -54,7 +54,7 @@ InnoDB存储引擎中的表相当于是Oracle数据库中的索引组织表（in
 
 ### AUTO_INCREMENT
 
-#### 使用
+#### Usage
 
 当前在应用开发时一般都会对主键选择自增类型，Oracle提供了sequence，InnoDB则提供了AUTO_INCREMENT特性。
 
@@ -107,7 +107,7 @@ SELECT LAST_INSERT_ID();
 
 InnoDB存储引擎还提供了一个方便的自增类型 `SERIAL` ，它是 `BIGINT UNSIGNED NOT NULL AUTO_INCREMENT UNIQUE` 的同义词。
 
-#### 自增模式
+#### AUTO_INCREMENT MODE
 
 TODO
 
@@ -147,6 +147,26 @@ InnoDB存储引擎和Oracle数据库都支持表分区，但是InnoDB存储引�
 
 目前，本人没有使用过表分区，且接触的几个系统也都没有使用分区，这主要是由这些业务决定，没有特别的需要要去使用分区。
 
-工作中有接触和使用过一张Oracle数据表，有20多亿条数据，单表600G，这样一张大表，它都没有使用分区，查询性能也不差，查询一条数据最多1.3秒。
+工作中有接触和使用过一张Oracle数据表，有20多亿条数据，单表600G，这样一张大表，它都没有使用分区，查询性能也不差，查询一条数据最多1秒。
 
 ## 索引
+
+索引分为聚簇索引（Clustered Index）和二级索引（Secondary Index），都是采用B+Tree的数据结构。
+
+聚簇索引就是实际顺序存储数据的那个索引，其他索引都称为二级索引。
+
+二级索引的叶子节点存储的是聚簇索引的索引键，然后再根据聚簇索引查询实际数据，因此聚簇索引的查询效率要高于二级索引。
+
+关于排序索引构建的过程可以参考[MySQL InnoDB Sorted Index Builds](https://www.percona.com/blog/2019/05/08/mysql-innodb-sorted-index-builds/)，
+附[中文翻译](https://blog.csdn.net/actiontech/article/details/99299841)
+
+## Doublewrite Buffer
+
+doublewrite（两次写）是牺牲了少部分的写入性能来提高的InnoDB存储引擎的可靠性，
+之所以称为doublewrite，是因为从缓冲数据刷入到磁盘的过程中经历了两次写的过程。
+
+![InnoDB Architecture](/images/mysql/logic_arch.png)
+
+## Redo Log
+
+## Undo Logs
