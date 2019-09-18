@@ -71,6 +71,13 @@ CREATE TABLE `students` (
 )
 COLLATE='utf8mb4_general_ci'
 ENGINE=InnoDB;
+
+INSERT INTO
+	tour.students (`NAME`) VALUES ('Tom'),
+('Hank'),
+('Jack'),
+('Nancy'),
+('Lucy') ;
 ```
 
 Session A:
@@ -226,13 +233,25 @@ Empty set (0.00 sec)
 
 分析：
 
+在会话A中显示开启一个事务，然后更新表tour.students主键id为1的数据，根据查询结果可以看到
+此过程给表tour.students加了IX锁，且给主键id为1的记录加了X锁，此时没有任何资源等待。
+
+另起会话B，以锁定方式读取表tour.students主键id为1的数据，此时可以看到表 `performance_schema.data_locks`多了两条记录，
+分别为表tour.students上的IS锁和主键id为1记录上的S锁，但该S锁是 `WAITING` 状态，因为S与X锁不兼容。
+表 `performance_schema.data_lock_waits` 有一条数据，BLOCKING_THREAD_ID: 50，REQUESTING_THREAD_ID: 59，
+即上面会话A中事务对应的线程ID：50 阻塞了会话B中事务对应的线程ID：59。
+
+若会话A在参数 `innodb_lock_wait_timeout` 设定的时间内既没提交也没回滚，则会话B会报错，等待资源锁超时。
+
 ### 行锁的三种分类
 
-#### 记录锁
+- Record Lock：单行记录锁
 
-#### 间隙锁
+- Gap Lock：间隙锁，锁定一个区间，但不包括记录本身
 
-#### Next-Key 锁
+- Next-Key Lock：Record Lock + Gap Lock，锁定一个区间，并锁定记录本身
+
+
 
 ### 非锁定一致性读
 
