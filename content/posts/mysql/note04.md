@@ -187,6 +187,8 @@ InnoDB存储引擎的索引结构为B+Tree，在索引记录上查找给定记�
 
 一般的，如果一个索引列具有值10，13，8，17，可能的锁定区间为：
 
+官方文档8.0版本的文档
+
 (-∞,8]
 
 (8,10]
@@ -196,6 +198,20 @@ InnoDB存储引擎的索引结构为B+Tree，在索引记录上查找给定记�
 (13,17]
 
 (17,+∞)
+
+MySQL技术内幕：InnoDB存储引擎
+
+(-∞,8)
+
+[8,10)
+
+[10,13)
+
+[13,17)
+
+[17,+∞)
+
+没有查到更多的资料，所以实际情况实际分析采用的是那种区间的算法
 
 #### 1.3.2 示例
 
@@ -311,7 +327,7 @@ VALUES
 |------|--------------------------------|--------------------|------------------------------|------------------|
 |INNODB|                            8713|                  65|                          8712|                61|
 
-可以看到新插入数据时也需要对+∞进行加锁（X,INSERT_INTENTION），此时两个X锁不兼容，造成了阻塞与等待。
+可以看到此时出现了阻塞，这是因为新插入的数据处在区间[6,+∞)上，会被gap supremum pseudo-record阻塞。
 
 Session B:
 
@@ -327,6 +343,7 @@ Session C:
 BEGIN;
 update tour.`user` t set t.name = concat(t.name,'1') where t.id = 3;
 update tour.`user` t set t.name = concat(t.name,'1') where t.id = 10;
+delete from tour.`user` t where t.id = 11;
 ```
 
 查询锁
@@ -343,31 +360,40 @@ update tour.`user` t set t.name = concat(t.name,'1') where t.id = 10;
 
 Empty set (0.00 sec)
 
->疑问：为什么session a 里的插入会被阻塞，而session c里的更新却不会被阻塞呢？  
->不是都会对supremum pseudo-record伪列加X锁么，应该都不兼容会阻塞啊。。。
+>sessoin b中的事务会被阻塞，但session c中的事务并没有被阻塞，这里说明了gap锁可以共存，
+>它会防止gap内的insert操作，但是不会阻塞gap内的更新或是删除操作
 
 - 范围查询
 
 ```SQL
 ROLLBACK;
 BEGIN;
-SELECT * FROM tour.user t WHERE t.id <= 2 FOR UPDATE;
+SELECT * FROM tour.user t WHERE t.id BETWEEN 2 AND 5 FOR UPDATE;
 ```
 
 查询锁
 
-|ENGINE_TRANSACTION_ID|THREAD_ID|OBJECT_SCHEMA|OBJECT_NAME|INDEX_NAME|LOCK_TYPE|LOCK_MODE|LOCK_STATUS|LOCK_DATA|
-|---------------------|---------|-------------|-----------|----------|---------|---------|-----------|---------|
-|                 8694|       61|tour         |user       |          |TABLE    |IX       |GRANTED    |         |
-|                 8694|       61|tour         |user       |PRIMARY   |RECORD   |X        |GRANTED    |1        |
-|                 8694|       61|tour         |user       |PRIMARY   |RECORD   |X        |GRANTED    |2        |
-|                 8694|       61|tour         |user       |PRIMARY   |RECORD   |X        |GRANTED    |3        |
+|ENGINE_TRANSACTION_ID|THREAD_ID|OBJECT_SCHEMA|OBJECT_NAME|INDEX_NAME|LOCK_TYPE|LOCK_MODE    |LOCK_STATUS|LOCK_DATA             |
+|---------------------|---------|-------------|-----------|----------|---------|-------------|-----------|----------------------|
+|                 8755|       70|tour         |user       |          |TABLE    |IX           |GRANTED    |                      |
+|                 8755|       70|tour         |user       |PRIMARY   |RECORD   |X,REC_NOT_GAP|GRANTED    |2                     |
+|                 8755|       70|tour         |user       |PRIMARY   |RECORD   |X            |GRANTED    |supremum pseudo-record|
+|                 8755|       70|tour         |user       |PRIMARY   |RECORD   |X            |GRANTED    |4                     |
+|                 8755|       70|tour         |user       |PRIMARY   |RECORD   |X            |GRANTED    |5                     |
+|                 8755|       70|tour         |user       |PRIMARY   |RECORD   |X            |GRANTED    |3                     |
 
-此时产生了三个Record Lock，主键为1，2和3的记录被锁定。
+此时可以看到锁定区间至少有
 
->主键为1和2的记录被锁定，这个很容易理解，但是为什么主键为3的记录也会被锁定？  
->可以理解为3为2记录的next-key值。  
->此时不能对主键为3的记录进行诸如删改等不兼容X锁的操作。
+[2,3)
+
+[3,4)
+
+[4,5)
+
+[5,+∞)
+
+此时，我们不能对主键2，3，4，5的记录进行不兼容X锁的操作，并且也不能进行区间[5,+∞)上的insert操作。
+
 
 - 修改事务级别为READ COMMITTED
 
@@ -375,7 +401,7 @@ SELECT * FROM tour.user t WHERE t.id <= 2 FOR UPDATE;
 ROLLBACK;
 SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
 BEGIN;
-SELECT * FROM tour.user t WHERE t.id <= 2 FOR UPDATE;
+SELECT * FROM tour.user t WHERE t.id  BETWEEN 2 AND 5  FOR UPDATE;
 ```
 
 查询锁
@@ -383,14 +409,222 @@ SELECT * FROM tour.user t WHERE t.id <= 2 FOR UPDATE;
 |ENGINE_TRANSACTION_ID|THREAD_ID|OBJECT_SCHEMA|OBJECT_NAME|INDEX_NAME|LOCK_TYPE|LOCK_MODE    |LOCK_STATUS|LOCK_DATA|
 |---------------------|---------|-------------|-----------|----------|---------|-------------|-----------|---------|
 |                 8696|       61|tour         |user       |          |TABLE    |IX           |GRANTED    |         |
-|                 8696|       61|tour         |user       |PRIMARY   |RECORD   |X,REC_NOT_GAP|GRANTED    |1        |
 |                 8696|       61|tour         |user       |PRIMARY   |RECORD   |X,REC_NOT_GAP|GRANTED    |2        |
+|                 8696|       61|tour         |user       |PRIMARY   |RECORD   |X,REC_NOT_GAP|GRANTED    |3        |
+|                 8696|       61|tour         |user       |PRIMARY   |RECORD   |X,REC_NOT_GAP|GRANTED    |4        |
+|                 8696|       61|tour         |user       |PRIMARY   |RECORD   |X,REC_NOT_GAP|GRANTED    |5        |
 
-间隙锁只会在高于READ COMMITTED级别中的事务出现。修改事务级别READ COMMITTED后可以发现没有任何间隙锁，而且只需要锁定主键为1和2的两条记录。
+间隙锁只会在高于READ COMMITTED级别中的事务出现。修改事务级别READ COMMITTED后可以发现没有任何间隙锁。
 
 ##### 1.3.2.2 唯一键
 
+由于上述例子为主键，所以关于gap看的还不是特别明显，所以使用唯一键前先调整下tour.users表的数据，如下：
+
+| id|code |name |age|
+|---|-----|-----|---|
+|  1|00003|Tom  | 12|
+|  2|00007|Jack | 15|
+|  3|00011|Nancy|  8|
+|  4|00015|Lucy | 18|
+|  5|00020|Jim  | 13|
+
+Session A:
+
+```SQL
+BEGIN;
+SELECT * FROM tour.user t WHERE t.code BETWEEN '00005' AND '00018' FOR UPDATE;
+```
+
+查询锁
+
+|ENGINE_TRANSACTION_ID|THREAD_ID|OBJECT_SCHEMA|OBJECT_NAME|INDEX_NAME|LOCK_TYPE|LOCK_MODE    |LOCK_STATUS|LOCK_DATA |
+|---------------------|---------|-------------|-----------|----------|---------|-------------|-----------|----------|
+|                 8786|       71|tour         |user       |          |TABLE    |IX           |GRANTED    |          |
+|                 8786|       71|tour         |user       |code      |RECORD   |X            |GRANTED    |'00007', 2|
+|                 8786|       71|tour         |user       |code      |RECORD   |X            |GRANTED    |'00011', 3|
+|                 8786|       71|tour         |user       |code      |RECORD   |X            |GRANTED    |'00015', 4|
+|                 8786|       71|tour         |user       |code      |RECORD   |X            |GRANTED    |'00020', 5|
+|                 8786|       71|tour         |user       |PRIMARY   |RECORD   |X,REC_NOT_GAP|GRANTED    |2         |
+|                 8786|       71|tour         |user       |PRIMARY   |RECORD   |X,REC_NOT_GAP|GRANTED    |4         |
+|                 8786|       71|tour         |user       |PRIMARY   |RECORD   |X,REC_NOT_GAP|GRANTED    |3         |
+
+看到如上锁的情况，我们可以先初步判断：
+
+- 在给定的查询条件内的记录会在主键上加锁X,REC_NOT_GAP，很明显我们不能对这三条记录进行删改，但是区间到底有哪些？
+  是-∞到20，还是7到20，亦或是7到+∞
+- 而且的区间到底是开还是闭，还留有存疑，因为唯一键已经保证了不能重复，无法测试区间的边界值，需要在后续非唯一索引上测试。
+
+以下测试就不具体叙述，只列结果
+
+Session B:
+
+```SQL
+ROLLBACK;
+BEGIN ;
+UPDATE  tour.`user` t set t.name = CONCAT (t.name,'1') where t.id = 2;  -- 被阻塞
+
+ROLLBACK;
+BEGIN;
+INSERT INTO tour.user(CODE,NAME,age) VALUES	('00006','Hank',12);  -- 被阻塞
+
+ROLLBACK;
+BEGIN;
+INSERT INTO tour.user(CODE,NAME,age) VALUES	('00019','Hank',12); -- 被阻塞
+
+ROLLBACK;
+BEGIN;
+INSERT INTO tour.user(CODE,NAME,age) VALUES	('00021','Hank',12); -- 不会被阻塞
+```
+
+从以上测试的结果可以得知，session a里的操纵实际锁定的区间为(-∞，20]，但是这个20是开还是闭，此处还没有结论，需往下测试。
+
 ##### 1.3.2.3 非唯一索引
+
+回滚上述所有操作。
+
+Session A:
+
+```SQL
+BEGIN;
+SELECT * FROM tour.user t WHERE t.age BETWEEN 11 AND 15 FOR UPDATE;
+```
+
+查询锁
+
+|ENGINE_TRANSACTION_ID|THREAD_ID|OBJECT_SCHEMA|OBJECT_NAME|INDEX_NAME|LOCK_TYPE|LOCK_MODE    |LOCK_STATUS|LOCK_DATA|
+|---------------------|---------|-------------|-----------|----------|---------|-------------|-----------|---------|
+|                 8812|       71|tour         |user       |          |TABLE    |IX           |GRANTED    |         |
+|                 8812|       71|tour         |user       |age       |RECORD   |X            |GRANTED    |12, 1    |
+|                 8812|       71|tour         |user       |age       |RECORD   |X            |GRANTED    |15, 2    |
+|                 8812|       71|tour         |user       |age       |RECORD   |X            |GRANTED    |18, 4    |
+|                 8812|       71|tour         |user       |age       |RECORD   |X            |GRANTED    |13, 5    |
+|                 8812|       71|tour         |user       |PRIMARY   |RECORD   |X,REC_NOT_GAP|GRANTED    |1        |
+|                 8812|       71|tour         |user       |PRIMARY   |RECORD   |X,REC_NOT_GAP|GRANTED    |2        |
+|                 8812|       71|tour         |user       |PRIMARY   |RECORD   |X,REC_NOT_GAP|GRANTED    |5        |
+
+很显然，锁定了3条符合条件的记录，同时存在区间锁定，具体区间范围见如下测试：
+
+Session B:
+
+```SQL
+ROLLBACK;
+BEGIN ;
+UPDATE  tour.`user` t set t.name = CONCAT (t.name,'1') where t.id = 2; -- 被阻塞
+
+ROLLBACK;
+BEGIN;
+INSERT INTO	tour.user(CODE,NAME,age) VALUES	('00026','Hank',9); -- 被阻塞
+
+ROLLBACK;
+BEGIN;
+INSERT INTO	tour.user(CODE,NAME,age) VALUES	('00026','Hank',12); -- 被阻塞
+
+ROLLBACK;
+BEGIN;
+INSERT INTO	tour.user(CODE,NAME,age) VALUES	('00026','Hank',15); -- 被阻塞
+
+ROLLBACK;
+BEGIN;
+INSERT INTO	tour.user(CODE,NAME,age) VALUES	('00026','Hank',16); -- 被阻塞
+
+ROLLBACK;
+BEGIN;
+INSERT INTO	tour.user(CODE,NAME,age) VALUES	('00026','Hank',18); -- 不会被阻塞
+
+ROLLBACK;
+BEGIN;
+INSERT INTO	tour.user(CODE,NAME,age) VALUES	('00026','Hank',100);  -- 不会被阻塞
+```
+
+从以上测试可以得知，锁定区间为(-∞,18)
+
+##### 1.3.2.4 无索引
+
+我们在测试下无索引情况下的间隙锁
+
+Session A:
+
+```SQL
+DROP INDEX age ON tour.user;
+BEGIN;
+SELECT * FROM tour.user t WHERE t.age BETWEEN 11 AND 15 FOR UPDATE;
+```
+
+查询锁
+
+|ENGINE_TRANSACTION_ID|THREAD_ID|OBJECT_SCHEMA|OBJECT_NAME|INDEX_NAME|LOCK_TYPE|LOCK_MODE|LOCK_STATUS|LOCK_DATA             |
+|---------------------|---------|-------------|-----------|----------|---------|---------|-----------|----------------------|
+|                 8843|       71|tour         |user       |          |TABLE    |IX       |GRANTED    |                      |
+|                 8843|       71|tour         |user       |PRIMARY   |RECORD   |X        |GRANTED    |supremum pseudo-record|
+|                 8843|       71|tour         |user       |PRIMARY   |RECORD   |X        |GRANTED    |1                     |
+|                 8843|       71|tour         |user       |PRIMARY   |RECORD   |X        |GRANTED    |2                     |
+|                 8843|       71|tour         |user       |PRIMARY   |RECORD   |X        |GRANTED    |4                     |
+|                 8843|       71|tour         |user       |PRIMARY   |RECORD   |X        |GRANTED    |5                     |
+|                 8843|       71|tour         |user       |PRIMARY   |RECORD   |X        |GRANTED    |3                     |
+
+看到这样的结果，第一反映就是锁全表了，后果很严重
+
+Session B:
+
+```SQL
+ROLLBACK;
+BEGIN ;
+UPDATE  tour.`user` t set t.name = CONCAT (t.name,'1') where t.id = 3; -- 被阻塞
+
+ROLLBACK;
+BEGIN ;
+UPDATE  tour.`user` t set t.name = CONCAT (t.name,'1') where t.id = 4; -- 被阻塞
+
+ROLLBACK;
+BEGIN;
+INSERT INTO	tour.user(CODE,NAME,age) VALUES	('00026','Hank',9); -- 被阻塞
+
+ROLLBACK;
+BEGIN;
+INSERT INTO	tour.user(CODE,NAME,age) VALUES	('00026','Hank',12); -- 被阻塞
+
+ROLLBACK;
+BEGIN;
+INSERT INTO	tour.user(CODE,NAME,age) VALUES	('00026','Hank',15); -- 被阻塞
+
+ROLLBACK;
+BEGIN;
+INSERT INTO	tour.user(CODE,NAME,age) VALUES	('00026','Hank',16); -- 被阻塞
+
+ROLLBACK;
+BEGIN;
+INSERT INTO	tour.user(CODE,NAME,age) VALUES	('00026','Hank',18); -- 被阻塞
+
+ROLLBACK;
+BEGIN;
+INSERT INTO	tour.user(CODE,NAME,age) VALUES	('00026','Hank',100);  -- 被阻塞
+```
+
+然后可以测试下将事务级别设置为READ COMMITTED后的情况。
+
+先回滚会话a和b中的事务。
+
+Session A:
+
+```SQL
+ROLLBACK;
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+BEGIN;
+SELECT * FROM tour.user t WHERE t.age BETWEEN 11 AND 15 FOR UPDATE;
+```
+
+查询锁
+
+|ENGINE_TRANSACTION_ID|THREAD_ID|OBJECT_SCHEMA|OBJECT_NAME|INDEX_NAME|LOCK_TYPE|LOCK_MODE    |LOCK_STATUS|LOCK_DATA|
+|---------------------|---------|-------------|-----------|----------|---------|-------------|-----------|---------|
+|                 8849|       71|tour         |user       |          |TABLE    |IX           |GRANTED    |         |
+|                 8849|       71|tour         |user       |PRIMARY   |RECORD   |X,REC_NOT_GAP|GRANTED    |1        |
+|                 8849|       71|tour         |user       |PRIMARY   |RECORD   |X,REC_NOT_GAP|GRANTED    |2        |
+|                 8849|       71|tour         |user       |PRIMARY   |RECORD   |X,REC_NOT_GAP|GRANTED    |5        |
+
+很明显，这个事务级别的锁就简单很多，没有间隙锁，没有锁全表，完全只需要锁定符合给定查询条件的记录。
+
+#### 1.3.3 总结
 
 ### 1.4 自增与锁
 
