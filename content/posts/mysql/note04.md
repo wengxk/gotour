@@ -1,5 +1,5 @@
 ---
-title: "InnoDB Locking Mechanisms and Transaction Management"
+title: "InnoDB Locking Mechanisms"
 date: 2019-09-15
 type:
 - post
@@ -8,7 +8,7 @@ categories:
 - mysql
 ---
 
-# InnoDB 锁机制与事务管理
+# InnoDB 锁机制
 
 现在的应用系统几乎都是多用户的，那在这样一个多用户多连接操作的情况下就会产生数据的并发性、一致性和完整性问题，InnoDB存储引擎应用锁机制来解决上述问题。
 数据库事务是指数据库中一组不可分割的执行单元，事务具有ACID特性。
@@ -510,12 +510,71 @@ SELECT * FROM tour.t01 t WHERE t.num BETWEEN 13 AND 28 FOR UPDATE;
 2. 查询主键或唯一键上的一条已有记录不会产生间隙锁，只会产生该条记录的记录锁X,REC_NOT_GAP。
 3. 在非唯一二级索引上的更新操作或锁定读的方式会产生间隙锁，这个间隙锁会阻塞其他事务向这个间隙内的数据插入操作，但不会阻塞更新和删除操作。
 4. 索引值会组成连续的间隙，在索引记录上查找给定记录时，InnoDB会在第一个不满足查询条件的记录上加gap lock，防止新的满足条件的记录插入。
-5. 区间的开闭情况和查询的条件有关，需要事情分析。
+5. 区间的开闭情况和查询的条件有关，需要实际分析。
 
 ### 1.4 自增与锁
 
+很多应用系统经常会使用自增列作为主键，这里涉及到一种自增锁技术。自增的工作模式主要由参数 `innodb_autoinc_lock_mode` 控制，具体细节可参考官网。
+
 ### 1.5 外键与锁
 
-### 1.6 死锁
+#### 1.5.1 本质
+
+外键是保证数据完整性的一种约束，InnoDB在创建外键时会自动对外键列添加索引，但是对于被引用的表的列还是需要手工加上索引的。
+
+向外键所在的表中插入数据时会先检查外表中是否存在该外键值，如果不存在，则直接会报错，如果存在，则会对外表中的引用列加S锁。
+
+```SQL
+CREATE TABLE `t_order` (
+    `order_no` CHAR(10) NOT NULL COLLATE 'utf8mb4_general_ci',
+    PRIMARY KEY (`order_no`)
+)
+COLLATE='utf8mb4_general_ci'
+ENGINE=InnoDB
+;
+
+CREATE TABLE `t_order_details` (
+    `order_no` CHAR(10) NOT NULL COLLATE 'utf8mb4_general_ci',
+    `item_code` CHAR(8) NULL DEFAULT NULL COLLATE 'utf8mb4_general_ci',
+    `item_quantity` INT(10) UNSIGNED NULL DEFAULT NULL,
+    CONSTRAINT FOREIGN KEY (`order_no`) REFERENCES `t_order` (`order_no`)
+)
+COLLATE='utf8mb4_general_ci'
+ENGINE=InnoDB
+;
+
+INSERT INTO t_order(order_no)VALUES('0000000001','0000000002','0000000003');
+```
+
+Session A:
+
+```SQL
+BEGIN;
+INSERT INTO t_order_details(order_no,item_code,item_quantity) VALUES('0000000001','0231A001',100);
+```
+
+查询表锁
+
+|ENGINE_TRANSACTION_ID|THREAD_ID|OBJECT_SCHEMA|OBJECT_NAME    |INDEX_NAME|LOCK_TYPE|LOCK_MODE    |LOCK_STATUS|LOCK_DATA   |
+|---------------------|---------|-------------|---------------|----------|---------|-------------|-----------|------------|
+|                 9766|       50|tour         |t_order_details|          |TABLE    |IX           |GRANTED    |            |
+|                 9766|       50|tour         |t_order        |          |TABLE    |IS           |GRANTED    |            |
+|                 9766|       50|tour         |t_order        |PRIMARY   |RECORD   |S,REC_NOT_GAP|GRANTED    |'0000000001'|
+
+可以明显看到对外表中的0000000001记录加上了S锁，那么此时是不能对该条记录进行不兼容S锁的操作的，例如删改等操作，这就保证的数据的完整性。
+
+#### 1.5.2 外键工作的几种关联方式
+
+创建外键时可以分别为外表上的delete和update操作指定关联操作：
+
+- RESTRICT: 存在被依赖记录时不允许操作
+- CASCADE: 级联操作
+- SET NULL: 为依赖记录设置NULL
+- NO ACTION: 同RESTRICT
+- SET DEFAULT:为依赖记录设置默认值
+
+细节可参考[https://dev.mysql.com/doc/refman/8.0/en/create-table-foreign-keys.html](https://dev.mysql.com/doc/refman/8.0/en/create-table-foreign-keys.html)
 
 ### 1.7 锁的转换与升级
+
+InnoDB和Oracle一致，都不存在锁的升级。转换的话可以由next-key转换为record或gap体现。
