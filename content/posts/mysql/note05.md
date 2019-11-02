@@ -122,6 +122,55 @@ UPDATE employee t SET t.NAME = CONCAT(t.NAME,'_01') WHERE t.id = 1;
 以上两个示例说明了InnoDB存储引擎事务隔离级别不会影响写，其DML语句中的where条件子查询不会受事务级别的影响，
 或者说是DML语句中的where条件子查询都是Read uncommitted级别的。
 
+## 事务控制
+
+### 隐式事务
+
+InnoDB存储引擎默认自动提交，由参数 `autocommit` 控制，为1或on时，为自动提交。
+
+对于用惯了Oracle数据库的开发者来说，自动提交经常会带来一些问题。
+
+有时候不小心DML错了一条记录，然后发现事务自动提交了，想rollback都rollback不了😂，最可怕的是DML时where条件忘记写全，
+造成大批量的数据丢失，那就惨了😱。这时只有跪求DBA出马，还要看DBA对备份和还原的机制做的好不好了。
+
+另外，在循环和批量语句执行时，自动提交事务会产生非常多的事务，可能会严重降低性能，
+建议显示开启事务，进行分组批量提交事务。
+
+对于事务自动提交，还存在其他弊端，建议全局禁用自动提交。
+
+DDL语句是隐式事务或者认为是没有事务的。
+
+### 显式事务
+
+DML语句显式开启事务一共有3种：
+
+```SQL
+set autocommit = 0;
+-- sql statement;
+-- rollback or commit;
+```
+
+```SQL
+begin;
+-- sql statement;
+-- rollback or commit;
+```
+
+begin这种方式只能出现在纯粹的sql语句中，在sql程序例如函数和存储过程中是无法显示开启事务的。
+
+```SQL
+START TRANSACTION;
+-- sql statement;
+-- rollback or commit;
+```
+
+在其他MySQL客户端中，应该使用它们提供的事务控制API来控制事务，例如jdbc或者ado.net
+
+### 事务分类
+
+除了正常的事务，即平层级的开启，然后提交或回滚这类事务，在实际工作中，也就是子事务在Oracle数据库中用的多些。
+在Oracle数据库中，子事务被称为自治事务，这种事务有一个特别符合的场景，就是记录日志。
+
 ## 事务的实现
 
 ## 锁定一致性读
