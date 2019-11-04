@@ -11,10 +11,10 @@ categories:
 # InnoDB 事务管理
 
 事务指的是一组逻辑的不可分割的工作单元。  
-事务的工作与锁机制息息相关，要深刻理解事务必须先要熟悉锁机制，参考[上篇文章](https://wengxk.netlify.com/2019/note03/)。  
+事务的工作与锁机制息息相关，要深刻理解事务必须先要熟悉锁机制，参考 [上篇文章](https://wengxk.netlify.com/2019/note03/)。  
 InnoDB存储引擎的事务符合ACID特性，但是在隔离级别上的实现与ANSI/ISO标准有些区别。
 
-## ACID特性
+## 1. ACID特性
 
 - A: atomicity，原子性
 - C: consistency，一致性
@@ -23,9 +23,9 @@ InnoDB存储引擎的事务符合ACID特性，但是在隔离级别上的实现�
 
 作为一个标准的关系型事务数据库引擎，ACID特性必不可少。
 
-## 事务隔离级别
+## 2. 事务隔离级别
 
-### Oracle 中的隔离级别
+### 2.1 Oracle 中的隔离级别
 
 |Isolation Level| Dirty Read| Nonrepeatable Read| Phantom Read|
 |:---|:---|:---|:---|
@@ -34,7 +34,7 @@ InnoDB存储引擎的事务符合ACID特性，但是在隔离级别上的实现�
 |Repeatable read| Not possible| Not possible| Possible|
 |Serializable| Not possible| Not possible| Not possible|
 
-### InnoDB 中的隔离级别
+### 2.2 InnoDB 中的隔离级别
 
 |Isolation Level| Dirty Read| Nonrepeatable Read| Phantom Read|
 |:---|:---|:---|:---|
@@ -43,7 +43,7 @@ InnoDB存储引擎的事务符合ACID特性，但是在隔离级别上的实现�
 |Repeatable read| Not possible| Not possible| Not Possible|
 |Serializable| Not possible| Not possible| Not possible|
 
-### 以上两者的区别
+### 2.3 以上两者的区别
 
 InnoDB存储引擎中和Oracle数据库中的事务有着三个基本的区别：
 
@@ -122,9 +122,9 @@ UPDATE employee t SET t.NAME = CONCAT(t.NAME,'_01') WHERE t.id = 1;
 以上两个示例说明了InnoDB存储引擎事务隔离级别不会影响写，其DML语句中的where条件子查询不会受事务级别的影响，
 或者说是DML语句中的where条件子查询都是Read uncommitted级别的。
 
-## 事务控制
+## 3. 事务控制
 
-### 隐式事务
+### 3.1 隐式事务
 
 InnoDB存储引擎默认自动提交，由参数 `autocommit` 控制，为1或on时，为自动提交。
 
@@ -136,11 +136,11 @@ InnoDB存储引擎默认自动提交，由参数 `autocommit` 控制，为1或on
 另外，在循环和批量语句执行时，自动提交事务会产生非常多的事务，可能会严重降低性能，
 建议显示开启事务，进行分组批量提交事务。
 
-对于事务自动提交，还存在其他弊端，建议全局禁用自动提交。
+对于事务自动提交，还存在其他弊端，例如，在锁定一致性读时，若没有禁用自动提交，是没有起到锁定作用的，所以建议全局禁用自动提交。
 
 DDL语句是隐式事务或者认为是没有事务的。
 
-### 显式事务
+### 3.2 显式事务
 
 DML语句显式开启事务一共有3种：
 
@@ -166,13 +166,24 @@ START TRANSACTION;
 
 在其他MySQL客户端中，应该使用它们提供的事务控制API来控制事务，例如jdbc或者ado.net
 
-### 事务分类
+### 3.3 事务分类
 
 除了正常的事务，即平层级的开启，然后提交或回滚这类事务，在实际工作中，也就是子事务在Oracle数据库中用的多些。
 在Oracle数据库中，子事务被称为自治事务，这种事务有一个特别符合的场景，就是记录日志。
 
-## 事务的实现
+## 4. 锁定一致性读
 
-## 锁定一致性读
+锁定一致性读是指读取数据的同时也给数据加锁，有共享锁和排他锁两种。
 
-## 非锁定一致性读
+- `select ... for update`， 加X锁
+- `select ... lock in share mode` 或 `select ... for share` ，加IS锁，前者写法会向后兼容
+
+## 5. 非锁定一致性读
+
+非锁定一致性读相当于数据库快照，通过多版本控制 `MVCC` 实现的，参见 [https://dev.mysql.com/doc/refman/8.0/en/innodb-multi-versioning.html](https://dev.mysql.com/doc/refman/8.0/en/innodb-multi-versioning.html)。
+
+## 参阅
+
+- [https://dev.mysql.com/doc/refman/8.0/en/innodb-deadlocks.html](https://dev.mysql.com/doc/refman/8.0/en/innodb-deadlocks.html)
+- [http://mysql.taobao.org/monthly/2015/12/01/](http://mysql.taobao.org/monthly/2015/12/01/)
+- [https://dev.mysql.com/doc/refman/8.0/en/innodb-multi-versioning.html](https://dev.mysql.com/doc/refman/8.0/en/innodb-multi-versioning.html)
