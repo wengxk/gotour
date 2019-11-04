@@ -1,0 +1,189 @@
+---
+title: "InnoDB Transaction Management"
+date: 2019-10-15
+type:
+- post
+- posts
+categories:
+- mysql
+---
+
+# InnoDB 事务管理
+
+事务指的是一组逻辑的不可分割的工作单元。  
+事务的工作与锁机制息息相关，要深刻理解事务必须先要熟悉锁机制，参考 [上篇文章](https://wengxk.netlify.com/2019/note03/)。  
+InnoDB存储引擎的事务符合ACID特性，但是在隔离级别上的实现与ANSI/ISO标准有些区别。
+
+## 1. ACID特性
+
+- A: atomicity，原子性
+- C: consistency，一致性
+- I: isolation，隔离性
+- D: durability，持久性
+
+作为一个标准的关系型事务数据库引擎，ACID特性必不可少。
+
+## 2. 事务隔离级别
+
+### 2.1 Oracle 中的隔离级别
+
+|Isolation Level| Dirty Read| Nonrepeatable Read| Phantom Read|
+|:---|:---|:---|:---|
+|Read uncommitted| Possible| Possible| Possible|
+|Read committed| Not possible| Possible| Possible|
+|Repeatable read| Not possible| Not possible| Possible|
+|Serializable| Not possible| Not possible| Not possible|
+
+### 2.2 InnoDB 中的隔离级别
+
+|Isolation Level| Dirty Read| Nonrepeatable Read| Phantom Read|
+|:---|:---|:---|:---|
+|Read uncommitted| Possible| Possible| Possible|
+|Read committed| Not possible| Possible| Possible|
+|Repeatable read| Not possible| Not possible| Not Possible|
+|Serializable| Not possible| Not possible| Not possible|
+
+### 2.3 以上两者的区别
+
+InnoDB存储引擎中和Oracle数据库中的事务有着三个基本的区别：
+
+1. InnoDB存储引擎事务默认隔离级别为Repeatable read，由参数 `transaction_isolation` 控制；Oracle数据库事务默认隔离级别为Read committed。
+2. Oracle和InnoDB中事务级别对读的影响区别在于InnoDB存储引擎中的Repeatable read不会出现幻读，这是因为next-key locking机制。
+3. Oracle中的事务级别不仅会影响读，还会影响写，DML语句中的where条件子查询会受事务级别的影响；
+   而InnoDB存储引擎事务隔离级别只会影响读，而不会影响写，其DML语句中的where条件子查询不会受事务级别的影响。
+   参考 [https://dev.mysql.com/doc/refman/8.0/en/innodb-deadlocks.html](https://dev.mysql.com/doc/refman/8.0/en/innodb-deadlocks.html)
+   中的一段描述：The possibility of deadlocks is not affected by the isolation level, because the isolation level changes the behavior of read operations, while deadlocks occur because of write operations.
+
+验证第3点：
+
+**Oracle**
+
+-----------------------------------------
+
+```SQL
+CREATE TABLE employee
+(
+id NUMBER PRIMARY KEY,
+NAME VARCHAR2(100)
+);
+```
+
+Session A:
+
+```SQL
+INSERT INTO employee(id,NAME) VALUES (1,'Tom');
+```
+
+Session B:
+
+```SQL
+UPDATE employee t SET t.NAME = t.NAME || '_01' WHERE t.id = 1;
+```
+
+Session B 直接返回结果：0 rows affected
+
+**InnoDB**
+
+-----------------------------------------
+
+```SQL
+CREATE TABLE employee
+(
+id INT PRIMARY KEY,
+NAME VARCHAR(100)
+);
+```
+
+Session A:
+
+```SQL
+BEGIN;
+INSERT INTO employee(id,NAME) VALUES (1,'Tom');
+```
+
+Session B:
+
+```SQL
+BEGIN;
+UPDATE employee t SET t.NAME = CONCAT(t.NAME,'_01') WHERE t.id = 1;
+```
+
+上面的语句执行时会被阻塞，取消执行，修改事务级别。
+
+```SQL
+ROLLBACK;
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+BEGIN;
+UPDATE employee t SET t.NAME = CONCAT(t.NAME,'_01') WHERE t.id = 1;
+```
+
+执行时同样会被阻塞。
+
+以上两个示例说明了InnoDB存储引擎事务隔离级别不会影响写，其DML语句中的where条件子查询不会受事务级别的影响，
+或者说是DML语句中的where条件子查询都是Read uncommitted级别的。
+
+## 3. 事务控制
+
+### 3.1 隐式事务
+
+InnoDB存储引擎默认自动提交，由参数 `autocommit` 控制，为1或on时，为自动提交。
+
+对于用惯了Oracle数据库的开发者来说，自动提交经常会带来一些问题。
+
+有时候不小心DML错了一条记录，然后发现事务自动提交了，想rollback都rollback不了😂，最可怕的是DML时where条件忘记写全，
+造成大批量的数据丢失，那就惨了😱。这时只有跪求DBA出马，还要看DBA对备份和还原的机制做的好不好了。
+
+另外，在循环和批量语句执行时，自动提交事务会产生非常多的事务，可能会严重降低性能，
+建议显示开启事务，进行分组批量提交事务。
+
+对于事务自动提交，还存在其他弊端，例如，在锁定一致性读时，若没有禁用自动提交，是没有起到锁定作用的，所以建议全局禁用自动提交。
+
+DDL语句是隐式事务或者认为是没有事务的。
+
+### 3.2 显式事务
+
+DML语句显式开启事务一共有3种：
+
+```SQL
+set autocommit = 0;
+-- sql statement;
+-- rollback or commit;
+```
+
+```SQL
+begin;
+-- sql statement;
+-- rollback or commit;
+```
+
+begin这种方式只能出现在纯粹的sql语句中，在sql程序例如函数和存储过程中是无法显示开启事务的。
+
+```SQL
+START TRANSACTION;
+-- sql statement;
+-- rollback or commit;
+```
+
+在其他MySQL客户端中，应该使用它们提供的事务控制API来控制事务，例如jdbc或者ado.net
+
+### 3.3 事务分类
+
+除了正常的事务，即平层级的开启，然后提交或回滚这类事务，在实际工作中，也就是子事务在Oracle数据库中用的多些。
+在Oracle数据库中，子事务被称为自治事务，这种事务有一个特别符合的场景，就是记录日志。
+
+## 4. 锁定一致性读
+
+锁定一致性读是指读取数据的同时也给数据加锁，有共享锁和排他锁两种。
+
+- `select ... for update`， 加X锁
+- `select ... lock in share mode` 或 `select ... for share` ，加IS锁，前者写法会向后兼容
+
+## 5. 非锁定一致性读
+
+非锁定一致性读相当于数据库快照，通过多版本控制 `MVCC` 实现的，参见 [https://dev.mysql.com/doc/refman/8.0/en/innodb-multi-versioning.html](https://dev.mysql.com/doc/refman/8.0/en/innodb-multi-versioning.html)。
+
+## 参阅
+
+- [https://dev.mysql.com/doc/refman/8.0/en/innodb-deadlocks.html](https://dev.mysql.com/doc/refman/8.0/en/innodb-deadlocks.html)
+- [http://mysql.taobao.org/monthly/2015/12/01/](http://mysql.taobao.org/monthly/2015/12/01/)
+- [https://dev.mysql.com/doc/refman/8.0/en/innodb-multi-versioning.html](https://dev.mysql.com/doc/refman/8.0/en/innodb-multi-versioning.html)

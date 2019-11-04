@@ -20,7 +20,7 @@ categories:
 ### 1.1 锁机制的整体行为表现
 
 InnoDB存储引擎的锁机制实现类似于Oracle，整体都是基于行锁的实现，其整体行为表现大同小异。
-在Oracle官方文档对于锁机制的一些讲解我认为写的非常好，而且对于我的工作也起到了很大的帮助，我认为这些基本原则同样也适用于InnoDB存储引擎。
+在Oracle [官方文档](https://docs.oracle.com/cd/E11882_01/server.112/e40540/consist.htm#CNCPT1331)对于锁机制的一些讲解我认为写的非常好，而且对于我的工作也起到了很大的帮助，我认为这些基本原则同样也适用于InnoDB存储引擎。
 
 1. row is locked only when modified by a writer.
 2. writer of a row blocks a concurrent writer of the same row.
@@ -573,8 +573,14 @@ INSERT INTO t_order_details(order_no,item_code,item_quantity) VALUES('0000000001
 - NO ACTION: 同RESTRICT
 - SET DEFAULT:为依赖记录设置默认值
 
-细节可参考[https://dev.mysql.com/doc/refman/8.0/en/create-table-foreign-keys.html](https://dev.mysql.com/doc/refman/8.0/en/create-table-foreign-keys.html)
+细节可参考 [https://dev.mysql.com/doc/refman/8.0/en/create-table-foreign-keys.html](https://dev.mysql.com/doc/refman/8.0/en/create-table-foreign-keys.html)
 
 ### 1.7 锁的转换与升级
 
 InnoDB和Oracle一致，都不存在锁的升级。转换的话可以由next-key转换为record或gap体现。
+
+### 参阅
+
+- [https://docs.oracle.com/cd/E11882_01/server.112/e40540/consist.htm#CNCPT1331](https://docs.oracle.com/cd/E11882_01/server.112/e40540/consist.htm#CNCPT1331)
+- [https://dev.mysql.com/doc/refman/8.0/en/innodb-locking.html](https://dev.mysql.com/doc/refman/8.0/en/innodb-locking.html)
+- [https://dev.mysql.com/doc/refman/8.0/en/create-table-foreign-keys.html](https://dev.mysql.com/doc/refman/8.0/en/create-table-foreign-keys.html)
