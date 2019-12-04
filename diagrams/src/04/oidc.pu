@@ -1,0 +1,9 @@
+@startuml oidc_basic_flow
+
+RP -> OP: (1) AuthN Request
+EU <-> OP: (2) AuthN & AuthZ
+OP -> RP: (3) AuthN Response
+RP -> OP: (4) UserInfo Request
+OP -> RP: (5) UserInfo Response
+
+@enduml
