@@ -1,0 +1,11 @@
+@startuml oidc_authorization_code_flow
+
+RP -> OP: 1. 发送认证请求，并携带必要参数
+OP -> EU: 2. 请求终端用户的认证与授权
+EU -> OP: 3. 用户认证与授权
+OP -> RP: 4. 用户认证与授权通过后，返回授权码
+RP -> OP: 5. 向OP的Token Endpoint发送请求获取期望的token，并附上授权码
+OP -> RP: 6. 验证通过后返回RP期望的token
+RP -> OP: 7. RP收到token并验证后，然后以这个token继续向OP请求期望信息
+
+@enduml
