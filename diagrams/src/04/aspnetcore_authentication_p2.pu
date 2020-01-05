@@ -1,0 +1,24 @@
+@startuml aspnetcore_authentication_part2
+
+box "OIDC Server" 
+participant IdentityServer
+end box
+
+box "User Agent" 
+participant UserAgent
+end box
+
+box "Client Server" 
+	participant ClientServer
+	participant AuthenticationMiddleware
+	participant OpenIdConnectHandler
+	participant _next
+end box
+
+IdentityServer -> UserAgent : authenticated
+UserAgent -> ClientServer : localhost:5002
+ClientServer -> AuthenticationMiddleware : http pipeline processing
+AuthenticationMiddleware -> OpenIdConnectHandler : invoke as IAuthenticationRequestHandler
+OpenIdConnectHandler -> _next : HandleRemoteAuthenticateAsync 
+
+@enduml

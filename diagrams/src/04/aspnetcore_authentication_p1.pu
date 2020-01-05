@@ -1,0 +1,30 @@
+@startuml aspnetcore_authentication_part1
+
+box "User Agent" 
+participant UserAgent
+end box
+
+box "Client Server" 
+	participant ClientServer
+	participant AuthorizeFilter
+	participant ChallengeResult
+	participant HttpContext.ChallengeAsync
+	participant AuthenticationService
+	participant AuthenticationHandler
+	participant OpenIdConnectHandler
+end box
+
+box "OIDC Server" 
+participant IdentityServer
+end box
+
+UserAgent -> ClientServer : localhost:5002
+ClientServer -> AuthorizeFilter : http pipeline processing
+AuthorizeFilter -> ChallengeResult :  OnAuthorizationAsync
+ChallengeResult -> HttpContext.ChallengeAsync : ExecuteResultAsync
+HttpContext.ChallengeAsync -> AuthenticationService : ChallengeAsync
+AuthenticationService -> AuthenticationHandler : ChallengeAsync
+AuthenticationHandler -> OpenIdConnectHandler : HandleChallengeAsync
+OpenIdConnectHandler -> UserAgent : Responds to a 401 Challenge.\nSends an OpenIdConnect message\nto the 'identity authority' to obtain an identity.
+UserAgent -> IdentityServer
+@enduml
